@@ -1,0 +1,2314 @@
+<!DOCTYPE html>
+<html lang="th" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CPU Registers & Datapath Interactive Explorer</title>
+    <meta name="description" content="Interactive guide and comparison simulator for x86-64/ARM64 CPU registers, CPU datapath, and assembly execution.">
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;700&family=Inter:wght@300;400;500;600;700;800&family=Noto+Sans+Thai:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <style>
+        :root {
+            --bg-primary: #0f172a;
+            --bg-secondary: #1e293b;
+            --bg-tertiary: #334155;
+            --accent-primary: #8b5cf6;
+            --accent-secondary: #6366f1;
+            --accent-gradient: linear-gradient(135deg, #8b5cf6 0%, #6366f1 100%);
+            --text-primary: #f8fafc;
+            --text-secondary: #94a3b8;
+            --text-muted: #64748b;
+            --border-color: rgba(255, 255, 255, 0.08);
+            --card-bg: rgba(30, 41, 59, 0.7);
+            --card-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.5);
+            --glass-blur: blur(12px);
+            --active-glow: 0 0 15px rgba(139, 92, 246, 0.3);
+            --glow-color: rgba(139, 92, 246, 0.5);
+            --success-color: #10b981;
+        }
+
+        .light-mode {
+            --bg-primary: #f8fafc;
+            --bg-secondary: #ffffff;
+            --bg-tertiary: #f1f5f9;
+            --accent-primary: #7c3aed;
+            --accent-secondary: #4f46e5;
+            --accent-gradient: linear-gradient(135deg, #7c3aed 0%, #4f46e5 100%);
+            --text-primary: #0f172a;
+            --text-secondary: #475569;
+            --text-muted: #94a3b8;
+            --border-color: rgba(0, 0, 0, 0.08);
+            --card-bg: rgba(255, 255, 255, 0.8);
+            --card-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.1);
+            --active-glow: 0 0 15px rgba(124, 58, 237, 0.2);
+            --glow-color: rgba(124, 58, 237, 0.3);
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Inter', 'Noto Sans Thai', sans-serif;
+            transition: background-color 0.3s ease, border-color 0.3s ease, color 0.3s ease;
+        }
+
+        body {
+            background-color: var(--bg-primary);
+            color: var(--text-primary);
+            min-height: 100vh;
+            display: flex;
+            overflow-x: hidden;
+        }
+
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: var(--bg-primary);
+        }
+        ::-webkit-scrollbar-thumb {
+            background: var(--bg-tertiary);
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: var(--accent-primary);
+        }
+
+        code, pre {
+            font-family: 'Fira Code', monospace;
+        }
+
+        /* Layout */
+        #sidebar {
+            width: 280px;
+            background-color: var(--bg-secondary);
+            border-right: 1px solid var(--border-color);
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            position: fixed;
+            left: 0;
+            top: 0;
+            z-index: 100;
+        }
+
+        #main-content {
+            margin-left: 280px;
+            flex-grow: 1;
+            min-height: 100vh;
+            padding: 40px;
+            display: flex;
+            flex-direction: column;
+            gap: 30px;
+            max-width: 1400px;
+        }
+
+        /* Sidebar Logo */
+        .sidebar-header {
+            padding: 24px;
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .logo-icon {
+            width: 38px;
+            height: 38px;
+            background: var(--accent-gradient);
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: 800;
+            font-size: 18px;
+            box-shadow: 0 4px 15px rgba(139, 92, 246, 0.4);
+        }
+
+        .logo-text h1 {
+            font-size: 15px;
+            font-weight: 800;
+            letter-spacing: 0.5px;
+            background: var(--accent-gradient);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .logo-text p {
+            font-size: 10px;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            font-weight: 600;
+        }
+
+        /* Navigation Menu */
+        .menu-list {
+            list-style: none;
+            padding: 15px;
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            flex-grow: 1;
+            overflow-y: auto;
+        }
+
+        .menu-group {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+            margin-bottom: 5px;
+        }
+
+        .group-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 12px;
+            border-radius: 8px;
+            color: var(--text-primary);
+            font-weight: 600;
+            font-size: 13px;
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .group-header:hover {
+            background-color: var(--bg-tertiary);
+        }
+
+        .group-header-left {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .group-icon {
+            font-size: 14px;
+        }
+
+        .caret {
+            font-size: 9px;
+            color: var(--text-muted);
+            transition: transform 0.2s ease;
+        }
+
+        .group-items {
+            list-style: none;
+            padding-left: 15px;
+            margin-top: 2px;
+            border-left: 1px dashed var(--border-color);
+            margin-left: 18px;
+            display: none;
+            flex-direction: column;
+            gap: 2px;
+        }
+
+        .menu-group.expanded .group-items {
+            display: flex;
+        }
+
+        .menu-group.expanded .caret {
+            transform: rotate(90deg);
+        }
+
+        .menu-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 8px 12px;
+            border-radius: 6px;
+            color: var(--text-secondary);
+            text-decoration: none;
+            font-weight: 500;
+            font-size: 12.5px;
+            cursor: pointer;
+            border: 1px solid transparent;
+        }
+
+        .menu-item:hover, .menu-item.active {
+            background-color: var(--bg-tertiary);
+            color: var(--text-primary);
+        }
+
+        .menu-item.active {
+            border-color: rgba(139, 92, 246, 0.2);
+            box-shadow: var(--active-glow);
+            background: linear-gradient(90deg, var(--bg-tertiary) 0%, rgba(139, 92, 246, 0.05) 100%);
+        }
+
+        .menu-item svg {
+            width: 15px;
+            height: 15px;
+            fill: none;
+            stroke: currentColor;
+            stroke-width: 2;
+            flex-shrink: 0;
+        }
+
+        .sidebar-footer {
+            padding: 20px;
+            border-top: 1px solid var(--border-color);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        /* Theme Toggle Button */
+        .theme-toggle-btn {
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border-color);
+            width: 40px;
+            height: 40px;
+            border-radius: 10px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--text-primary);
+        }
+
+        .theme-toggle-btn:hover {
+            color: var(--accent-primary);
+            border-color: var(--accent-primary);
+        }
+
+        /* Top Bar / Search */
+        #topbar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 20px;
+            margin-bottom: 10px;
+        }
+
+        .search-container {
+            position: relative;
+            flex-grow: 1;
+            max-width: 500px;
+        }
+
+        .search-input {
+            width: 100%;
+            background-color: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: 10px;
+            padding: 12px 16px 12px 45px;
+            color: var(--text-primary);
+            font-size: 14px;
+            outline: none;
+        }
+
+        .search-input:focus {
+            border-color: var(--accent-primary);
+            box-shadow: var(--active-glow);
+        }
+
+        .search-icon {
+            position: absolute;
+            left: 15px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: var(--text-secondary);
+            pointer-events: none;
+            width: 18px;
+            height: 18px;
+        }
+
+        /* Page Wrapper */
+        .page {
+            display: none;
+            animation: fadeIn 0.4s ease-out forwards;
+        }
+
+        .page.active {
+            display: flex;
+            flex-direction: column;
+            gap: 30px;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* Cards & Glassmorphism */
+        .glass-card {
+            background-color: var(--card-bg);
+            backdrop-filter: var(--glass-blur);
+            -webkit-backdrop-filter: var(--glass-blur);
+            border: 1px solid var(--border-color);
+            border-radius: 16px;
+            padding: 30px;
+            box-shadow: var(--card-shadow);
+        }
+
+        .card-header-gradient {
+            background: var(--accent-gradient);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            font-weight: 800;
+            font-size: 24px;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        /* Headings & Text */
+        h2 {
+            font-size: 20px;
+            font-weight: 700;
+            margin-bottom: 12px;
+            color: var(--text-primary);
+            border-left: 4px solid var(--accent-primary);
+            padding-left: 10px;
+        }
+
+        p {
+            line-height: 1.7;
+            color: var(--text-secondary);
+            margin-bottom: 15px;
+            font-size: 14.5px;
+        }
+
+        /* Tables styling */
+        .table-container {
+            overflow-x: auto;
+            border-radius: 12px;
+            border: 1px solid var(--border-color);
+            margin: 20px 0;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            text-align: left;
+            font-size: 14px;
+        }
+
+        th {
+            background-color: rgba(0, 0, 0, 0.15);
+            padding: 16px 20px;
+            font-weight: 600;
+            color: var(--text-primary);
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        td {
+            padding: 16px 20px;
+            border-bottom: 1px solid var(--border-color);
+            color: var(--text-secondary);
+        }
+
+        tr:hover td {
+            background-color: rgba(255, 255, 255, 0.02);
+            color: var(--text-primary);
+        }
+
+        .highlight-badge {
+            background: rgba(139, 92, 246, 0.1);
+            color: var(--accent-primary);
+            border: 1px solid rgba(139, 92, 246, 0.2);
+            padding: 2px 8px;
+            border-radius: 6px;
+            font-weight: 600;
+            font-family: 'Fira Code', monospace;
+        }
+
+        /* Callouts */
+        .callout {
+            border-left: 4px solid var(--accent-primary);
+            background-color: rgba(139, 92, 246, 0.05);
+            padding: 20px;
+            border-radius: 0 12px 12px 0;
+            margin: 20px 0;
+        }
+
+        .callout.tip {
+            border-left-color: #10b981;
+            background-color: rgba(16, 185, 129, 0.05);
+        }
+
+        .callout.warning {
+            border-left-color: #f59e0b;
+            background-color: rgba(245, 158, 11, 0.05);
+        }
+
+        .callout-header {
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 8px;
+            color: var(--text-primary);
+        }
+
+        /* Interactive Simulator Layouts */
+        .simulator-grid {
+            display: grid;
+            grid-template-columns: 1fr 340px;
+            gap: 30px;
+        }
+
+        @media (max-width: 1024px) {
+            .simulator-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .sim-diagram-card {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 30px;
+            background: rgba(15, 23, 42, 0.5);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            min-height: 480px;
+            position: relative;
+        }
+
+        .sim-steps-card {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        /* Simulator CPU Nodes */
+        .cpu-core-diagram {
+            width: 100%;
+            height: 380px;
+            position: relative;
+        }
+
+        .diagram-node {
+            position: absolute;
+            background-color: var(--bg-secondary);
+            border: 2px solid var(--border-color);
+            border-radius: 10px;
+            padding: 12px 16px;
+            font-family: 'Fira Code', monospace;
+            font-size: 13px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s ease;
+        }
+
+        .diagram-node.active {
+            border-color: var(--accent-primary);
+            box-shadow: 0 0 20px var(--glow-color);
+            transform: scale(1.03);
+        }
+
+        #node-registers { top: 40px; left: 45px; width: 190px; }
+        #node-control { top: 40px; right: 45px; width: 190px; }
+        #node-alu { bottom: 60px; left: 50%; transform: translateX(-50%); width: 220px; height: 100px; }
+        #node-instruction { top: 180px; right: 45px; width: 190px; }
+
+        .alu-shape {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            font-size: 18px;
+            clip-path: polygon(0% 0%, 40% 0%, 50% 25%, 60% 0%, 100% 0%, 80% 100%, 20% 100%);
+            background: linear-gradient(180deg, var(--bg-tertiary) 0%, rgba(139, 92, 246, 0.1) 100%);
+            border: 2px solid var(--accent-primary);
+            border-radius: 0 0 10px 10px;
+        }
+
+        /* Bus Lines (SVG) */
+        .bus-svg {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 1;
+        }
+
+        .bus-line {
+            fill: none;
+            stroke: var(--border-color);
+            stroke-width: 4;
+            stroke-linecap: round;
+            transition: stroke 0.3s ease;
+        }
+
+        .bus-line.active {
+            stroke: var(--accent-primary);
+        }
+
+        .data-packet {
+            width: 26px;
+            height: 26px;
+            background: var(--accent-gradient);
+            border-radius: 50%;
+            color: white;
+            font-size: 10px;
+            font-weight: bold;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: absolute;
+            z-index: 5;
+            opacity: 0;
+            box-shadow: 0 0 10px var(--accent-primary);
+        }
+
+        .packet-animation-1 { animation: movePacket1 1.5s ease-in-out infinite; }
+        .packet-animation-2 { animation: movePacket2 1.5s ease-in-out infinite; }
+        .packet-animation-writeback { animation: movePacketWB 1.5s ease-in-out infinite; }
+
+        @keyframes movePacket1 {
+            0% { opacity: 1; left: 130px; top: 100px; }
+            100% { opacity: 1; left: 240px; top: 290px; }
+        }
+        @keyframes movePacket2 {
+            0% { opacity: 1; left: 130px; top: 100px; }
+            100% { opacity: 1; left: 290px; top: 290px; }
+        }
+        @keyframes movePacketWB {
+            0% { opacity: 1; left: 270px; top: 320px; }
+            50% { opacity: 1; left: 130px; top: 320px; }
+            100% { opacity: 1; left: 130px; top: 100px; }
+        }
+
+        /* Control Panel */
+        .control-panel {
+            display: flex;
+            gap: 10px;
+            margin-top: 15px;
+        }
+
+        .btn {
+            padding: 10px 16px;
+            border-radius: 8px;
+            border: 1px solid var(--border-color);
+            background-color: var(--bg-secondary);
+            color: var(--text-primary);
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            text-transform: uppercase;
+        }
+
+        .btn:hover {
+            background-color: var(--bg-tertiary);
+            border-color: var(--accent-primary);
+        }
+
+        .btn-primary {
+            background: var(--accent-gradient);
+            color: white;
+            border: none;
+            box-shadow: 0 4px 15px rgba(139, 92, 246, 0.3);
+        }
+
+        .btn-primary:hover {
+            box-shadow: 0 4px 20px rgba(139, 92, 246, 0.5);
+            transform: translateY(-1px);
+        }
+
+        .btn:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+
+        .step-desc {
+            background-color: rgba(255,255,255,0.02);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 16px;
+            font-size: 13.5px;
+            min-height: 120px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            line-height: 1.6;
+        }
+
+        /* Interactive Comparison Tool */
+        .comparison-builder {
+            display: grid;
+            grid-template-columns: 1fr auto 1fr;
+            gap: 30px;
+            align-items: center;
+            margin-top: 20px;
+        }
+
+        @media (max-width: 768px) {
+            .comparison-builder { grid-template-columns: 1fr; }
+            .vs-badge { transform: rotate(90deg); }
+        }
+
+        .builder-column {
+            background-color: rgba(0,0,0,0.1);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .builder-title {
+            font-weight: 700;
+            font-size: 15px;
+            text-align: center;
+            margin-bottom: 10px;
+        }
+
+        .register-select {
+            width: 100%;
+            background-color: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            color: var(--text-primary);
+            border-radius: 8px;
+            padding: 10px;
+            outline: none;
+            cursor: pointer;
+        }
+
+        .vs-badge {
+            background: var(--accent-gradient);
+            width: 44px;
+            height: 44px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: 800;
+            box-shadow: 0 4px 15px rgba(139, 92, 246, 0.4);
+        }
+
+        .comparison-output {
+            margin-top: 20px;
+            grid-column: span 3;
+            background-color: rgba(139, 92, 246, 0.03);
+            border: 1px dashed var(--accent-primary);
+            border-radius: 12px;
+            padding: 24px;
+            display: none;
+        }
+
+        @media (max-width: 768px) {
+            .comparison-output { grid-column: span 1; }
+        }
+
+        .output-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+
+        @media (max-width: 640px) {
+            .output-grid { grid-template-columns: 1fr; }
+        }
+
+        .output-card {
+            background-color: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: 10px;
+            padding: 20px;
+        }
+
+        .output-card h4 {
+            color: var(--accent-primary);
+            font-weight: 700;
+            font-size: 17px;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        /* Register Cards Grid */
+        .register-cards-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 20px;
+            margin-top: 20px;
+        }
+
+        .reg-card {
+            background-color: rgba(255,255,255,0.02);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .reg-card:hover {
+            transform: translateY(-2px);
+            border-color: var(--accent-primary);
+            background-color: rgba(139, 92, 246, 0.02);
+        }
+
+        .reg-card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .reg-card-name {
+            font-family: 'Fira Code', monospace;
+            font-weight: 700;
+            font-size: 16px;
+            color: var(--text-primary);
+        }
+
+        .reg-card-size {
+            font-size: 10px;
+            color: var(--text-muted);
+            background-color: rgba(0,0,0,0.2);
+            padding: 2px 6px;
+            border-radius: 4px;
+        }
+
+        .reg-card-desc {
+            font-size: 13px;
+            color: var(--text-secondary);
+            line-height: 1.5;
+        }
+
+        /* Tag Piles */
+        .tag-pill {
+            display: inline-block;
+            background-color: var(--bg-tertiary);
+            color: var(--text-secondary);
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 11px;
+            margin-right: 5px;
+            margin-bottom: 5px;
+        }
+
+        /* XCHG Interactive Stage */
+        .xchg-visualizer {
+            display: flex;
+            justify-content: space-around;
+            align-items: center;
+            width: 100%;
+            height: 200px;
+            background-color: rgba(0,0,0,0.2);
+            border-radius: 12px;
+            border: 1px solid var(--border-color);
+            margin: 20px 0;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .xchg-box {
+            width: 120px;
+            height: 80px;
+            background-color: var(--bg-secondary);
+            border: 2px solid var(--border-color);
+            border-radius: 8px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            font-family: 'Fira Code', monospace;
+            font-weight: bold;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+            z-index: 2;
+            transition: border-color 0.3s ease, box-shadow 0.3s ease;
+        }
+
+        .xchg-box.active {
+            border-color: var(--accent-primary);
+            box-shadow: 0 0 15px var(--glow-color);
+        }
+
+        .xchg-box-title {
+            font-size: 12px;
+            color: var(--text-secondary);
+        }
+
+        .xchg-box-val {
+            font-size: 20px;
+            color: var(--text-primary);
+            margin-top: 5px;
+        }
+
+        .xchg-latch {
+            width: 100px;
+            height: 50px;
+            background: linear-gradient(135deg, rgba(255,255,255,0.02) 0%, rgba(255,255,255,0.05) 100%);
+            border: 1px dashed var(--border-color);
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 11px;
+            color: var(--text-muted);
+            position: absolute;
+            top: 130px;
+            opacity: 0;
+            transition: all 0.5s ease;
+        }
+
+        .xchg-latch.active {
+            opacity: 1;
+            border-color: var(--accent-secondary);
+            color: var(--text-secondary);
+        }
+
+        #latch-eax { left: calc(25% - 50px); }
+        #latch-ebx { right: calc(25% - 50px); }
+
+        /* Program Assembly Viewer */
+        .assembly-code-card {
+            background-color: #0b0f19;
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            overflow: hidden;
+            font-family: 'Fira Code', monospace;
+            font-size: 13px;
+        }
+
+        .assembly-line {
+            display: flex;
+            padding: 8px 16px;
+            border-left: 4px solid transparent;
+            transition: background-color 0.2s, border-left-color 0.2s;
+        }
+
+        .assembly-line.active {
+            background-color: rgba(139, 92, 246, 0.08);
+            border-left-color: var(--accent-primary);
+        }
+
+        .assembly-line-num {
+            width: 30px;
+            color: var(--text-muted);
+            user-select: none;
+        }
+
+        .assembly-line-text {
+            color: var(--text-primary);
+            flex-grow: 1;
+        }
+
+        .assembly-line.active .assembly-line-text {
+            color: #fff;
+            text-shadow: 0 0 5px rgba(255,255,255,0.3);
+        }
+
+        .assembly-comment {
+            color: #4a5d78;
+        }
+
+        /* CPU Panel Grid */
+        .cpu-states-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 15px;
+            margin: 15px 0;
+        }
+
+        .state-mini-card {
+            background-color: rgba(255,255,255,0.02);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 12px;
+            text-align: center;
+        }
+
+        .state-mini-title {
+            font-size: 11px;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 5px;
+        }
+
+        .state-mini-val {
+            font-family: 'Fira Code', monospace;
+            font-size: 16px;
+            font-weight: 700;
+            color: var(--text-primary);
+        }
+
+        /* Control Signals table inside simulator */
+        .signals-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+            margin-top: 15px;
+            font-size: 11px;
+        }
+
+        .signal-indicator {
+            background-color: rgba(0, 0, 0, 0.2);
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            padding: 6px 10px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-family: 'Fira Code', monospace;
+        }
+
+        .signal-indicator.active {
+            border-color: var(--success-color);
+            color: var(--success-color);
+            box-shadow: 0 0 8px rgba(16, 185, 129, 0.1);
+        }
+
+        .signal-light {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background-color: var(--text-muted);
+        }
+
+        .signal-indicator.active .signal-light {
+            background-color: var(--success-color);
+            box-shadow: 0 0 6px var(--success-color);
+        }
+
+        .flow-diagram-wrapper {
+            margin: 20px 0;
+            padding: 20px;
+            background-color: rgba(0,0,0,0.15);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .flow-node {
+            padding: 8px 12px;
+            border: 1px solid var(--border-color);
+            background-color: var(--bg-secondary);
+            border-radius: 6px;
+            font-family: 'Fira Code', monospace;
+            font-size: 11px;
+            text-align: center;
+            opacity: 0.6;
+        }
+
+        .flow-node.highlight {
+            border-color: var(--accent-primary);
+            box-shadow: 0 0 10px var(--glow-color);
+            opacity: 1;
+        }
+
+        .flow-arrow {
+            color: var(--text-muted);
+            font-weight: bold;
+        }
+
+        .flow-arrow.highlight {
+            color: var(--accent-primary);
+            text-shadow: 0 0 5px var(--glow-color);
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Sidebar Navigation -->
+    <aside id="sidebar">
+        <div class="sidebar-header">
+            <div class="logo-icon">CPU</div>
+            <div class="logo-text">
+                <h1>Registers Hub</h1>
+                <p>Interactive Guide</p>
+            </div>
+        </div>
+
+        <ul class="menu-list">
+            <!-- Home (No group, always visible) -->
+            <li>
+                <div class="menu-item active" onclick="switchPage('dashboard', this)">
+                    <svg viewBox="0 0 24 24"><path d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/></svg>
+                    <span>หน้าแรก (Overview)</span>
+                </div>
+            </li>
+
+            <!-- Folder: Registers -->
+            <li class="menu-group expanded">
+                <div class="group-header" onclick="toggleGroup(this)">
+                    <div class="group-header-left">
+                        <span class="group-icon">📁</span>
+                        <span>Registers</span>
+                    </div>
+                    <span class="caret">▶</span>
+                </div>
+                <ul class="group-items">
+                    <li>
+                        <div class="menu-item" onclick="switchPage('datapath-page', this)">
+                            <span>⚡ สถาปัตยกรรมภายใน</span>
+                        </div>
+                    </li>
+                    <li>
+                        <div class="menu-item" onclick="switchPage('x86-page', this)">
+                            <span>🖥️ สถาปัตยกรรม x86-64</span>
+                        </div>
+                    </li>
+                    <li>
+                        <div class="menu-item" onclick="switchPage('arm64-page', this)">
+                            <span>🍎 ARM64 (Apple Mx)</span>
+                        </div>
+                    </li>
+                    <li>
+                        <div class="menu-item" onclick="switchPage('comparison-page', this)">
+                            <span>⚖️ ตารางเปรียบเทียบ</span>
+                        </div>
+                    </li>
+                </ul>
+            </li>
+
+            <!-- Folder: Assembly -->
+            <li class="menu-group">
+                <div class="group-header" onclick="toggleGroup(this)">
+                    <div class="group-header-left">
+                        <span class="group-icon">📁</span>
+                        <span>Assembly</span>
+                    </div>
+                    <span class="caret">▶</span>
+                </div>
+                <ul class="group-items">
+                    <li>
+                        <div class="menu-item" onclick="switchPage('program-sim-page', this)">
+                            <span>🛠️ จำลองโปรแกรมตัวอย่าง</span>
+                        </div>
+                    </li>
+                </ul>
+            </li>
+
+            <!-- Folder: x86 Processor -->
+            <li class="menu-group">
+                <div class="group-header" onclick="toggleGroup(this)">
+                    <div class="group-header-left">
+                        <span class="group-icon">📁</span>
+                        <span>x86 Processor</span>
+                    </div>
+                    <span class="caret">▶</span>
+                </div>
+                <ul class="group-items">
+                    <li>
+                        <div class="menu-item" onclick="switchPage('xchg-page', this)">
+                            <span>🔀 เจาะลึกคำสั่ง XCHG</span>
+                        </div>
+                    </li>
+                    <li>
+                        <div class="menu-item" onclick="switchPage('visualizer-page', this)">
+                            <span>🔄 จำลองคำสั่งเดี่ยว (ADD)</span>
+                        </div>
+                    </li>
+                </ul>
+            </li>
+        </ul>
+
+        <div class="sidebar-footer">
+            <button class="theme-toggle-btn" id="theme-btn" onclick="toggleTheme()" aria-label="Toggle light/dark theme">
+                <!-- Sun Icon -->
+                <svg id="sun-icon" viewBox="0 0 24 24" style="width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 2; display: none;">
+                    <circle cx="12" cy="12" r="5"></circle>
+                    <path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"></path>
+                </svg>
+                <!-- Moon Icon -->
+                <svg id="moon-icon" viewBox="0 0 24 24" style="width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 2;">
+                    <path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"></path>
+                </svg>
+            </button>
+            <div style="font-size: 11px; color: var(--text-muted);">v1.1.0</div>
+        </div>
+    </aside>
+
+    <!-- Main Content Area -->
+    <main id="main-content">
+        
+        <!-- Top Bar -->
+        <header id="topbar">
+            <div class="search-container">
+                <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><path d="M21 21l-4.35-4.35"></path></svg>
+                <input type="text" id="search-bar" class="search-input" placeholder="ค้นหารีจิสเตอร์ หรือคำสำคัญ..." oninput="handleSearch()">
+            </div>
+            <div>
+                <span style="font-size: 12px; color: var(--text-muted); background: var(--bg-secondary); border: 1px solid var(--border-color); padding: 4px 10px; border-radius: 20px;">
+                    Course: COS2104 Computer Architecture
+                </span>
+            </div>
+        </header>
+
+        <!-- Search Results Page -->
+        <section id="search-results-page" class="glass-card">
+            <div class="card-header-gradient">ผลลัพธ์การค้นหา</div>
+            <div id="search-results-list" class="register-cards-grid"></div>
+        </section>
+
+        <!-- Page 1: Dashboard (How it Works) -->
+        <section id="dashboard" class="page active glass-card">
+            <div class="card-header-gradient">How CPU Registers Work</div>
+            
+            <h2>รีจิสเตอร์ (Register) คืออะไร?</h2>
+            <p>
+                รีจิสเตอร์ คือหน่วยความจำขนาดเล็กมากที่สร้างขึ้นอยู่ภายในตัวประมวลผลกลาง (CPU) โดยตรง ถือเป็นหน่วยความจำที่ทำงานด้วย **ความเร็วสูงที่สุด** ในระบบคอมพิวเตอร์ ทำหน้าที่เสมือนกับ "โต๊ะทำงานของช่าง" เพื่อประมวลผลข้อมูลชั่วคราว
+            </p>
+
+            <div class="callout">
+                <div class="callout-header">💡 เปรียบเทียบความแตกต่างการทำงาน</div>
+                <p>
+                    <strong>Register (รีจิสเตอร์):</strong> เครื่องมือช่างที่ถือไว้ในมือ หยิบใช้งานได้ทันทีใน 1 รอบสัญญาณนาฬิกา<br>
+                    <strong>Cache Memory (แคช L1-L3):</strong> ชั้นวางเครื่องมือข้างหลังโต๊ะทำงาน หยิบใช้งานได้เร็วปานกลาง<br>
+                    <strong>RAM (หน่วยความจำหลัก):</strong> โกดังเก็บของที่อยู่นอกตัวอาคาร มีขนาดใหญ่มาก แต่การหยิบของต้องใช้เวลาเดินเดินทาง (Latency สูง)
+                </p>
+            </div>
+
+            <h2>ทำไมรีจิสเตอร์ถึงเร็วที่สุด?</h2>
+            <p>
+                รีจิสเตอร์ถูกสร้างขึ้นโดยใช้การต่อวงจรทรานซิสเตอร์แบบ <strong>Flip-Flop</strong> (ประมาณ 6 ตัวต่อการเก็บข้อมูล 1 บิต) ซึ่งมีความรวดเร็วทางฟิสิกส์สูงมาก ทำงานได้ตรงตามสัญญาณนาฬิกาโดยไม่ต้องประจุไฟซ้ำ (Refresh) เหมือนหน่วยความจำ DRAM ที่ใช้ใน RAM ทั่วไป ยิ่งกว่านั้นมันยังตั้งอยู่ใกล้กับ <strong>ALU (Arithmetic Logic Unit)</strong> มากที่สุด ทำให้ข้อมูลเดินทางผ่านกระแสไฟฟ้าเกือบจะทันที
+            </p>
+
+            <h2>ข้อจำกัดที่เราไม่มี Register เป็นกิกะไบต์ (GB)</h2>
+            <p>
+                เนื่องจากวงจร Flip-Flop กินพื้นที่ชิปขนาดใหญ่มาก หากผลิตรีจิสเตอร์จำนวนมากจะส่งผลให้ตัวชิปมีขนาดกว้างเกินไปและเกิดความร้อนสะสมที่สูงมากจนพังเสียหาย นอกจากนี้ชุดคำสั่ง (Instruction Set) จะต้องใช้บิตข้อมูลแอดเดรสที่ยาวมากเพื่อระบุตำแหน่งรีจิสเตอร์ ทำให้การประมวลผลภาพรวมช้าลง
+            </p>
+
+            <div class="callout tip">
+                <div class="callout-header">🔄 Register Spilling คืออะไร?</div>
+                <p>
+                    เมื่อเขียนโปรแกรม ตัวแปลภาษา (Compiler) จะคอยจัดสรรว่าตัวแปรใดสำคัญสุดให้ขึ้นไปรันบนรีจิสเตอร์ หากมีตัวแปรเกินขีดจำกัด คอมไพเลอร์จะเขียนคำสั่งเพื่อคัดลอกข้อมูลเก่าลงไปเก็บไว้ใน RAM ชั่วคราว (เรียกขั้นตอนนี้ว่า <strong>Register Spilling หรือ Spill to Stack</strong>) เพื่อเว้นพื้นที่รีจิสเตอร์ให้ข้อมูลชุดใหม่
+                </p>
+            </div>
+        </section>
+
+        <!-- Page 2: x86 Architecture -->
+        <section id="x86-page" class="page glass-card">
+            <div class="card-header-gradient">สถาปัตยกรรม x86-64 Registers</div>
+            
+            <p>
+                สถาปัตยกรรม x86-64 เป็นสถาปัตยกรรมแบบ CISC (Complex Instruction Set Computer) มีโครงสร้างรีจิสเตอร์ที่พัฒนาต่อเนื่องมาหลายสิบปีตั้งแต่ยุค 8-bit จึงมีกลไกย่อยที่สามารถเข้าถึงบิตล่างหรือบนได้
+            </p>
+
+            <h2>General-Purpose Registers (GPRs)</h2>
+            <p>มีรีจิสเตอร์ใช้งานทั่วไป 16 ตัวที่สามารถระบุตำแหน่งแบบ 64 บิต (`R` prefix), 32 บิต (`E` prefix), 16 บิต, หรือ 8 บิตได้</p>
+            
+            <div id="x86-cards" class="register-cards-grid">
+                <!-- Dynamically injected -->
+            </div>
+
+            <div class="callout warning">
+                <div class="callout-header">⚠️ ข้อควรจำ: Segment Registers</div>
+                <p>
+                    ในอดีต `CS`, `DS`, `SS`, `ES`, `FS`, `GS` เคยทำหน้าที่แบ่งแอดเดรสหน่วยความจำ แต่ในปัจจุบันระบบปฏิบัติการสมัยใหม่ใช้โมเดลหน่วยความจำแบนราบ (Flat Memory Model) เซกเมนต์รีจิสเตอร์เหล่านี้จึงใช้ชี้ไปยังข้อมูลการทำงานเฉพาะตัวของระบบ เช่น Thread-Local Storage (TLS) เท่านั้น
+                </p>
+            </div>
+        </section>
+
+        <!-- Page 3: ARM64 (Apple Silicon Mx) -->
+        <section id="arm64-page" class="page glass-card">
+            <div class="card-header-gradient">ARM64 (Apple Silicon Mx) Registers</div>
+            
+            <p>
+                ชิป Apple Silicon (M1 - M5) ทำงานบนสถาปัตยกรรม ARM64 (AArch64) ซึ่งเป็นแบบ RISC (Reduced Instruction Set Computer) มีการจัดสรรรีจิสเตอร์ใช้งานทั่วไปอย่างเป็นระบบถึง 31 ตัว (X0 - X30) ซึ่งเรียบง่ายและเป็นระบบมากกว่า x86
+            </p>
+
+            <h2>รีจิสเตอร์ใช้งานทั่วไปและบทบาททางกฎระเบียบ (ARM ABI)</h2>
+            <div id="arm64-cards" class="register-cards-grid">
+                <!-- Dynamically injected -->
+            </div>
+
+            <div class="callout tip">
+                <div class="callout-header">🚀 ส่วนเสริมสำหรับ AI: SVE & SME ใน Mx รุ่นใหม่</div>
+                <p>
+                    ตั้งแต่ชิป <strong>Apple M3, M4, M5</strong> ขึ้นไป จะนำสถาปัตยกรรม ARMv9-A มาใช้ ซึ่งรวมเอาชุดรีจิสเตอร์เวกเตอร์ปรับขนาดได้ <strong>Z0 - Z31 (SVE)</strong> และรีจิสเตอร์สะสมเมทริกซ์ 2 มิติ <strong>ZA (SME)</strong> เข้ามาเร่งความเร็วการประมวลผลปัญญาประดิษฐ์ (ML/AI) ช่วยลดเวลาบวกและคูณแมทริกซ์อย่างมหาศาล
+                </p>
+            </div>
+        </section>
+
+        <!-- Page 4: Datapath & Control Registers -->
+        <section id="datapath-page" class="page glass-card">
+            <div class="card-header-gradient">CPU Datapath & Control Registers</div>
+            
+            <p>
+                ในระบบคอมพิวเตอร์ นอกเหนือจากรีจิสเตอร์ใช้งานทั่วไป (GPRs) แล้ว ยังมีรีจิสเตอร์ระบบภายในที่ช่วยประสานงานควบคุมทิศทางของข้อมูลระหว่าง CPU Core, ALU (หน่วยประมวลผลคำนวณ) และ System RAM 
+            </p>
+
+            <h2>ทำความเข้าใจเรื่องเส้นทางข้อมูล (Datapath)</h2>
+            <p>
+                <strong>ALU (Arithmetic Logic Unit):</strong> เปรียบเสมือน "เครื่องคิดเลขฟิสิกส์" ที่ประมวลผลบวก ลบ และตรรกศาสตร์ แต่ตัวมันไม่มีสมองในตัวที่จะบันทึกค่าไว้ได้ สัญญาณผลลัพธ์ที่ออกจะวิ่งออกไปที่อื่นทันที ดังนั้น CPU จึงต้องมีหน่วยควบคุมและโครงข่ายรีจิสเตอร์พักข้อมูลคอยจัดส่งพิกัดและพัสดุข้อมูลให้ถูกที่
+            </p>
+
+            <h2>รู้จักผู้ประสานงานหลักทั้ง 4 ใน CPU Core</h2>
+            <div class="register-cards-grid">
+                <div class="reg-card">
+                    <div class="reg-card-header">
+                        <span class="reg-card-name">PC (Program Counter)</span>
+                        <span class="reg-card-size">16 / 32 / 64-bit</span>
+                    </div>
+                    <div style="font-size:12px; color:var(--accent-primary); font-weight:600;">ผู้ถือแผนที่นำทาง 🗺️</div>
+                    <div class="reg-card-desc">ทำหน้าที่เก็บแอดเดรสตำแหน่งหน่วยความจำของคำสั่งถัดไปที่โปรแกรมกำลังจะเรียกเข้าทำงาน โดยค่าจะขยับขึ้นอัตโนมัติเมื่อดึงข้อมูลไปแล้ว หรือเปลี่ยนแอดเดรสเมื่อพบคำสั่ง Jump/Branch</div>
+                </div>
+                <div class="reg-card">
+                    <div class="reg-card-header">
+                        <span class="reg-card-name">MAR (Memory Address Register)</span>
+                        <span class="reg-card-size">16 / 32 / 64-bit</span>
+                    </div>
+                    <div style="font-size:12px; color:var(--accent-primary); font-weight:600;">คนส่งพัสดุฝั่งที่อยู่ ✉️</div>
+                    <div class="reg-card-desc">เก็บตำแหน่งของหน่วยความจำแรม (RAM Address) ที่ CPU กำลังต้องการเข้าไปเขียนข้อมูล หรือเปิดอ่านข้อมูล เชื่อมต่อตรงกับบัสแอดเดรส (Address Bus)</div>
+                </div>
+                <div class="reg-card">
+                    <div class="reg-card-header">
+                        <span class="reg-card-name">MBR / MDR</span>
+                        <span class="reg-card-size">16 / 32 / 64-bit</span>
+                    </div>
+                    <div style="font-size:12px; color:var(--accent-primary); font-weight:600;">ท่าพักตู้คอนเทนเนอร์ 📦</div>
+                    <div class="reg-card-desc">ทำหน้าที่เก็บตัวข้อมูลจริง ๆ (Data) ที่เพิ่งรับอ่านมาจากแรม หรือข้อมูลที่เตรียมส่งบันทึกลงแรมเพื่อรอการสลับสับเปลี่ยน เชื่อมต่อตรงกับบัสข้อมูล (Data Bus)</div>
+                </div>
+                <div class="reg-card">
+                    <div class="reg-card-header">
+                        <span class="reg-card-name">IR (Instruction Register)</span>
+                        <span class="reg-card-size">16 / 32 / 64-bit</span>
+                    </div>
+                    <div style="font-size:12px; color:var(--accent-primary); font-weight:600;">โต๊ะแกะกล่องคำสั่ง 📋</div>
+                    <div class="reg-card-desc">เก็บรหัสคำสั่ง (Instruction Code) ที่ CPU ไปดึงมาจากแรมเพื่อส่งให้หน่วยควบคุม (Control Unit) แปลความหมายและสั่งทำงานต่อไป</div>
+                </div>
+            </div>
+
+            <div class="callout tip">
+                <div class="callout-header">🔄 ลำดับขั้นการ Fetch-Decode-Execute ในหนึ่งรอบคำสั่ง</div>
+                <p style="font-size:13.5px; line-height:1.6;">
+                    1. <strong>Fetch:</strong> ค่าแอดเดรสใน <code>PC</code> จะถูกก๊อปปี้ไปที่ <code>MAR</code> -> แรมนำรหัสคำสั่งกลับมาไว้ที่ <code>MBR</code> -> ก๊อปปี้รหัสคำสั่งไปที่ <code>IR</code> และขยับค่าใน <code>PC</code> เพิ่มขึ้น<br>
+                    2. <strong>Decode:</strong> หน่วยควบคุมมาเปิดคำสั่งใน <code>IR</code> เพื่อตีความและเปิดปิดวาล์วส่งกระแสไฟสัญญาณให้ทำงานถูกต้อง<br>
+                    3. <strong>Execute:</strong> โหลดตัวแปรผ่าน <code>MAR</code> เข้ามาที่ <code>MBR</code> -> ส่งเข้าประมวลผลที่ <strong>ALU</strong> -> นำผลลัพธ์เขียนกลับลงรีจิสเตอร์ที่กำหนด
+                </p>
+            </div>
+        </section>
+
+        <!-- Page 5: Comparison Table & Tool -->
+        <section id="comparison-page" class="page glass-card">
+            <div class="card-header-gradient">ตารางเปรียบเทียบ & เครื่องมือวิเคราะห์เทียบเคียง</div>
+            
+            <p>ตารางเปรียบเทียบสถาปัตยกรรมหลักของเครื่องควบคุมรีจิสเตอร์ระหว่าง x86-64 และ ARM64 (Apple Silicon Mx)</p>
+
+            <div class="table-container">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>หัวข้อ</th>
+                            <th>x86-64 (Intel / AMD)</th>
+                            <th>ARM64 (Apple Silicon Mx)</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><strong>จำนวนรีจิสเตอร์ใช้งานทั่วไป (GPRs)</strong></td>
+                            <td>16 ตัว (RAX ถึง RSP, R8 ถึง R15)</td>
+                            <td>31 ตัว (X0 ถึง X30)</td>
+                        </tr>
+                        <tr>
+                            <td><strong>รีจิสเตอร์ค่าศูนย์ทางฮาร์ดแวร์</strong></td>
+                            <td>ไม่มี (ต้องใช้ XOR เคลียร์แอดเดรส)</td>
+                            <td>มี (รีจิสเตอร์ XZR และ WZR มีค่าเป็น 0 เสมอ)</td>
+                        </tr>
+                        <tr>
+                            <td><strong>การเรียกใช้งานฟังก์ชัน (Calling Convention)</strong></td>
+                            <td>ใช้บิตในแรม Stack บันทึกแอดเดรสกลับทันทีผ่าน `CALL`</td>
+                            <td>ใช้บิตรีจิสเตอร์ `X30` (Link Register) บันทึกแอดเดรสกลับผ่าน `BL`</td>
+                        </tr>
+                        <tr>
+                            <td><strong>โครงสร้างเวกเตอร์คณิตศาสตร์ (SIMD)</strong></td>
+                            <td>XMM (128-bit), YMM (256-bit), ZMM (512-bit)</td>
+                            <td>V0-V31 (128-bit NEON), Z0-Z31 (SVE), ZA (SME)</td>
+                        </tr>
+                        <tr>
+                            <td><strong>สถาปัตยกรรมหน่วยความจำ</strong></td>
+                            <td>CISC (ทำคำสั่งบวกกับแรมได้โดยตรง)</td>
+                            <td>Load-Store (ต้องดึงข้อมูลใส่รีจิสเตอร์ก่อนประมวลผล)</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Interactive Comparison Tool -->
+            <h2>เครื่องมือจำลองการเปรียบเทียบรีจิสเตอร์เชิงหน้าที่</h2>
+            <p>เลือกประเภทหน้าที่ของรีจิสเตอร์ในตระกูลสถาปัตยกรรมเพื่อเทียบหาแอดเดรสปลายทางที่สอดคล้องกัน</p>
+            
+            <div class="comparison-builder">
+                <div class="builder-column">
+                    <div class="builder-title">x86-64 Register</div>
+                    <select id="x86-select" class="register-select" onchange="compareRegisters()">
+                        <option value="">เลือกรีจิสเตอร์ x86...</option>
+                        <!-- Injected -->
+                    </select>
+                </div>
+                <div class="vs-badge">VS</div>
+                <div class="builder-column">
+                    <div class="builder-title">ARM64 (Mx) Register</div>
+                    <select id="arm-select" class="register-select" onchange="compareRegisters()">
+                        <option value="">เลือกรีจิสเตอร์ ARM64...</option>
+                        <!-- Injected -->
+                    </select>
+                </div>
+                
+                <div id="compare-result" class="comparison-output">
+                    <div class="output-grid">
+                        <div class="output-card" id="x86-comp-card"></div>
+                        <div class="output-card" id="arm-comp-card"></div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Page 6: xchg Instruction Detailed Page -->
+        <section id="xchg-page" class="page glass-card">
+            <div class="card-header-gradient">xchg Instruction & Datapath Analysis</div>
+            <p>
+                คำสั่ง <code>xchg eax, ebx</code> เป็นตัวอย่างของสถาปัตยกรรมแบบ CISC ที่ออกแบบมาเพื่อลดจำนวนบรรทัดของโค้ดโปรแกรม โดยการทำงานนี้จะทำการ **สลับค่าข้อมูล** ระหว่างรีจิสเตอร์ EAX และ EBX ในคำสั่งเดียวระดับฮาร์ดแวร์
+            </p>
+
+            <h2>จำลองการแลกเปลี่ยนข้อมูล (Interactive Exchange Demo)</h2>
+            <p>ระบุตัวเลขเริ่มต้นให้ EAX และ EBX และกดปุ่ม Exchange เพื่อดูแอนิเมชันการไขว้สัญญาณข้อมูลระดับกายภาพ</p>
+
+            <div style="margin: 15px 0; display:flex; gap:15px; align-items:center;">
+                <label style="font-size:13px; color:var(--text-secondary);">EAX Start: 
+                    <input type="number" id="xchg-input-eax" value="45" style="width:70px; background:var(--bg-secondary); border:1px solid var(--border-color); color:white; padding:6px; border-radius:6px; font-family:monospace;">
+                </label>
+                <label style="font-size:13px; color:var(--text-secondary);">EBX Start: 
+                    <input type="number" id="xchg-input-ebx" value="99" style="width:70px; background:var(--bg-secondary); border:1px solid var(--border-color); color:white; padding:6px; border-radius:6px; font-family:monospace;">
+                </label>
+                <button class="btn btn-primary" onclick="runXchgDemo()">Run XCHG</button>
+            </div>
+
+            <div class="xchg-visualizer" id="xchg-container">
+                <!-- SVG Connections -->
+                <svg class="bus-svg" style="z-index: 1;">
+                    <!-- EAX to Latch A -->
+                    <path id="path-eax-latch" class="bus-line" d="M 210 90 L 210 130" />
+                    <!-- EBX to Latch B -->
+                    <path id="path-ebx-latch" class="bus-line" d="M 750 90 L 750 130" />
+                    <!-- Latch A cross to EBX -->
+                    <path id="path-cross-a" class="bus-line" d="M 210 180 L 210 210 L 750 210 L 750 90" />
+                    <!-- Latch B cross to EAX -->
+                    <path id="path-cross-b" class="bus-line" d="M 750 180 L 750 210 L 210 210 L 210 90" />
+                </svg>
+
+                <div class="xchg-box" id="box-eax" style="position:absolute; left: calc(25% - 60px); top: 50px;">
+                    <span class="xchg-box-title">Register EAX</span>
+                    <span class="xchg-box-val" id="val-eax">45</span>
+                </div>
+
+                <div class="xchg-box" id="box-ebx" style="position:absolute; right: calc(25% - 60px); top: 50px;">
+                    <span class="xchg-box-title">Register EBX</span>
+                    <span class="xchg-box-val" id="val-ebx">99</span>
+                </div>
+
+                <div class="xchg-latch" id="latch-eax">Buffer A</div>
+                <div class="xchg-latch" id="latch-ebx">Buffer B</div>
+            </div>
+
+            <div class="step-desc" id="xchg-step-desc" style="min-height:90px;">
+                กดปุ่ม "Run XCHG" เพื่อดูการสลับสายส่งกระแสไฟข้อมูล (Cross-routing) ภายใน CPU Core
+            </div>
+
+            <div class="callout warning">
+                <div class="callout-header">⚡ ทำไม RISC ถึงไม่มีคำสั่งนี้?</div>
+                <p style="font-size:13.5px;">
+                    เนื่องจาก RISC (เช่น ARM) มุ่งเน้นไปที่ทรานซิสเตอร์ขนาดเล็กและคำสั่งสั้น การไขว้สัญญาณไฟฟ้าระดับฮาร์ดแวร์แบบนี้สร้างความซับซ้อนในตัวประมวลผลสูงมาก ARM64 จึงบังคับให้ใช้ชุดคำสั่ง 3 คำสั่งสลับกันแทน โดยใช้รีจิสเตอร์ตัวที่ 3 เป็นตัวช่วยพักข้อมูล
+                </p>
+            </div>
+        </section>
+
+        <!-- Page 7: Sample Program Simulator Page -->
+        <section id="program-sim-page" class="page glass-card">
+            <div class="card-header-gradient">Assembly Program Simulator (Irvine32)</div>
+            <p>
+                จำลองและแกะรอยการทำงานทีละคำสั่งของโปรแกรมคำนวณผลต่างตัวเลขสองตัว ผ่านการตรวจค่าสถานะตัวประสานงาน Datapath (PC, MAR, MBR, IR) และสัญญาณควบคุม (Control Signals)
+            </p>
+
+            <div class="simulator-grid">
+                <!-- Left: Assembly code and CPU States -->
+                <div style="display:flex; flex-direction:column; gap:20px;">
+                    <div class="assembly-code-card">
+                        <div style="background-color:rgba(255,255,255,0.05); padding:10px 16px; border-bottom:1px solid var(--border-color); font-weight:bold; font-size:12px; color:var(--text-secondary);">
+                            SOURCE CODE (Irvine32 ASM)
+                        </div>
+                        <div class="assembly-line" id="prog-line-1">
+                            <span class="assembly-line-num">1</span>
+                            <span class="assembly-line-text">call ReadInt <span class="assembly-comment">; รับค่าอินพุต A (ป้อนไว้ในกล่องขวา)</span></span>
+                        </div>
+                        <div class="assembly-line" id="prog-line-2">
+                            <span class="assembly-line-num">2</span>
+                            <span class="assembly-line-text">mov ebx, eax <span class="assembly-comment">; สำรองค่า A ลงใน EBX</span></span>
+                        </div>
+                        <div class="assembly-line" id="prog-line-3">
+                            <span class="assembly-line-num">3</span>
+                            <span class="assembly-line-text">call ReadInt <span class="assembly-comment">; รับค่าอินพุต B (ป้อนไว้ในกล่องขวา)</span></span>
+                        </div>
+                        <div class="assembly-line" id="prog-line-4">
+                            <span class="assembly-line-num">4</span>
+                            <span class="assembly-line-text">xchg eax, ebx<span class="assembly-comment">; สลับค่า EAX และ EBX (ตัวตั้ง <-> ตัวลบ)</span></span>
+                        </div>
+                        <div class="assembly-line" id="prog-line-5">
+                            <span class="assembly-line-num">5</span>
+                            <span class="assembly-line-text">sub eax, ebx <span class="assembly-comment">; ลบค่า EAX = EAX - EBX</span></span>
+                        </div>
+                        <div class="assembly-line" id="prog-line-6">
+                            <span class="assembly-line-num">6</span>
+                            <span class="assembly-line-text">call WriteInt<span class="assembly-comment">; พิมพ์ผลต่างออกทางจอภาพ</span></span>
+                        </div>
+                    </div>
+
+                    <!-- Flow Diagram of Datapath -->
+                    <div class="flow-diagram-wrapper">
+                        <div class="flow-node" id="flow-pc">PC</div>
+                        <div class="flow-arrow" id="arrow-pc-mar">➔</div>
+                        <div class="flow-node" id="flow-mar">MAR</div>
+                        <div class="flow-arrow" id="arrow-mar-ram">➔</div>
+                        <div class="flow-node" id="flow-ram">RAM</div>
+                        <div class="flow-arrow" id="arrow-ram-mbr">➔</div>
+                        <div class="flow-node" id="flow-mbr">MBR</div>
+                        <div class="flow-arrow" id="arrow-mbr-ir">➔</div>
+                        <div class="flow-node" id="flow-ir">IR</div>
+                    </div>
+
+                    <div class="step-desc" id="prog-step-desc">
+                        กรอกตัวเลขอินพุต A และ B ทางด้านขวา จากนั้นกดปุ่ม "รันคำสั่งถัดไป" หรือ "เริ่มโปรแกรมใหม่" เพื่อเรียนรู้กระบวนการทีละสเต็ป
+                    </div>
+                </div>
+
+                <!-- Right: CPU Registers and Control Signals Panel -->
+                <div class="sim-steps-card">
+                    <div style="background-color:rgba(0,0,0,0.1); border:1px solid var(--border-color); border-radius:12px; padding:20px;">
+                        <h3 style="font-size:14px; margin-bottom:12px; color:var(--text-primary); text-transform:uppercase;">Register File</h3>
+                        <div class="cpu-states-grid">
+                            <div class="state-mini-card" id="card-eax">
+                                <div class="state-mini-title">EAX</div>
+                                <div class="state-mini-val" id="prog-reg-eax">?</div>
+                            </div>
+                            <div class="state-mini-card" id="card-ebx">
+                                <div class="state-mini-title">EBX</div>
+                                <div class="state-mini-val" id="prog-reg-ebx">?</div>
+                            </div>
+                            <div class="state-mini-card">
+                                <div class="state-mini-title">PC</div>
+                                <div class="state-mini-val" id="prog-reg-pc">0000</div>
+                            </div>
+                        </div>
+
+                        <h3 style="font-size:14px; margin-bottom:12px; margin-top:20px; color:var(--text-primary); text-transform:uppercase;">Datapath Temp Registers</h3>
+                        <div class="cpu-states-grid">
+                            <div class="state-mini-card">
+                                <div class="state-mini-title">MAR</div>
+                                <div class="state-mini-val" id="prog-reg-mar">0000</div>
+                            </div>
+                            <div class="state-mini-card">
+                                <div class="state-mini-title">MBR</div>
+                                <div class="state-mini-val" id="prog-reg-mbr">0000</div>
+                            </div>
+                            <div class="state-mini-card">
+                                <div class="state-mini-title">IR</div>
+                                <div class="state-mini-val" id="prog-reg-ir" style="font-size:11px;">None</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Input Fields -->
+                    <div style="background-color:rgba(0,0,0,0.1); border:1px solid var(--border-color); border-radius:12px; padding:15px 20px;">
+                        <h3 style="font-size:14px; margin-bottom:10px;">ตั้งค่าอินพุตโปรแกรม:</h3>
+                        <div style="display:flex; gap:15px; margin-bottom:12px;">
+                            <label style="font-size:12px; color:var(--text-secondary);">ตัวเลขแรก (A): 
+                                <input type="number" id="prog-input-a" value="20" style="width:65px; background:var(--bg-secondary); border:1px solid var(--border-color); color:white; padding:4px; border-radius:4px; font-family:monospace;">
+                            </label>
+                            <label style="font-size:12px; color:var(--text-secondary);">ตัวเลขสอง (B): 
+                                <input type="number" id="prog-input-b" value="5" style="width:65px; background:var(--bg-secondary); border:1px solid var(--border-color); color:white; padding:4px; border-radius:4px; font-family:monospace;">
+                            </label>
+                        </div>
+                        <div class="control-panel">
+                            <button class="btn btn-primary" id="btn-prog-step" onclick="stepProgram()">รันคำสั่งถัดไป</button>
+                            <button class="btn" id="btn-prog-reset" onclick="resetProgram()">เริ่มใหม่</button>
+                        </div>
+                    </div>
+
+                    <!-- Control Signals -->
+                    <div style="background-color:rgba(0,0,0,0.1); border:1px solid var(--border-color); border-radius:12px; padding:20px;">
+                        <h3 style="font-size:14px; margin-bottom:10px; color:var(--text-primary); text-transform:uppercase;">Control Signals</h3>
+                        <div class="signals-grid">
+                            <div class="signal-indicator" id="sig-regread">
+                                <span>RegRead</span>
+                                <div class="signal-light"></div>
+                            </div>
+                            <div class="signal-indicator" id="sig-regwrite">
+                                <span>RegWrite</span>
+                                <div class="signal-light"></div>
+                            </div>
+                            <div class="signal-indicator" id="sig-memread">
+                                <span>MemRead</span>
+                                <div class="signal-light"></div>
+                            </div>
+                            <div class="signal-indicator" id="sig-memwrite">
+                                <span>MemWrite</span>
+                                <div class="signal-light"></div>
+                            </div>
+                            <div class="signal-indicator" id="sig-ioread">
+                                <span>I/O Read</span>
+                                <div class="signal-light"></div>
+                            </div>
+                            <div class="signal-indicator" id="sig-iowrite">
+                                <span>I/O Write</span>
+                                <div class="signal-light"></div>
+                            </div>
+                        </div>
+                        <div style="margin-top:12px; font-size:11px; color:var(--text-muted); font-family:monospace;" id="sig-alu-op">
+                            ALU Control: Pass-through
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Page 8: Register Cycle Visualizer (Old visualizer) -->
+        <section id="visualizer-page" class="page glass-card">
+            <div class="card-header-gradient">CPU Register Cycle Visualizer (ADD)</div>
+            
+            <p>แบบจำลองแสดงขั้นตอนประมวลผลคำสั่ง <strong>ADD R1, R2, R3</strong> (บวกค่าใน R2 และ R3 แล้วเก็บใน R1) เพื่อเรียนรู้การไหลผ่านของสัญญาณภายใน CPU Core</p>
+
+            <div class="simulator-grid">
+                <!-- Diagram Visualizer -->
+                <div class="sim-diagram-card">
+                    <div class="cpu-core-diagram" id="cpu-diagram">
+                        
+                        <!-- Connecting SVG lines -->
+                        <svg class="bus-svg">
+                            <!-- Bus Registers to ALU Left -->
+                            <path id="path-reg-alu1" class="bus-line" d="M 120 100 L 120 200 L 220 200 L 220 280" />
+                            <!-- Bus Registers to ALU Right -->
+                            <path id="path-reg-alu2" class="bus-line" d="M 140 100 L 140 220 L 300 220 L 300 280" />
+                            <!-- Control Unit to Instruction Register -->
+                            <path id="path-ctrl-ir" class="bus-line" d="M 390 100 L 390 180" />
+                            <!-- Instruction Register to Registers -->
+                            <path id="path-ir-reg" class="bus-line" d="M 300 200 L 230 200" style="display:none;" />
+                            <!-- ALU Writeback to Registers -->
+                            <path id="path-alu-wb" class="bus-line" d="M 260 340 L 260 360 L 60 360 L 60 100 L 100 100" />
+                        </svg>
+
+                        <!-- Nodes -->
+                        <div class="diagram-node" id="node-registers">
+                            <strong>Register File</strong>
+                            <div style="font-size: 11px; margin-top:5px; width: 100%; text-align: left;">
+                                R1 (Dst): <span id="sim-reg-r1" class="highlight-badge">0</span><br>
+                                R2 (Src1): <span id="sim-reg-r2" class="highlight-badge">24</span><br>
+                                R3 (Src2): <span id="sim-reg-r3" class="highlight-badge">16</span>
+                            </div>
+                        </div>
+
+                        <div class="diagram-node" id="node-control">
+                            <strong>Control Unit (CU)</strong>
+                            <div style="font-size: 10px; margin-top:3px; color:var(--text-secondary);">ควบคุมสัญญาณนาฬิกา</div>
+                        </div>
+
+                        <div class="diagram-node" id="node-instruction">
+                            <strong>Instruction Reg (IR)</strong>
+                            <div style="font-size: 11px; color: var(--accent-primary); font-weight: bold; margin-top: 5px;">
+                                ADD R1, R2, R3
+                            </div>
+                        </div>
+
+                        <div id="node-alu" style="position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%); width: 240px; height: 100px; z-index: 2;">
+                            <div class="alu-shape">
+                                <div style="display:flex; flex-direction:column; align-items:center;">
+                                    <span>ALU</span>
+                                    <span id="alu-expr" style="font-size:11px; color:var(--text-secondary); margin-top:2px;">รอนำเข้าข้อมูล...</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Animated Packets -->
+                        <div id="packet-1" class="data-packet">24</div>
+                        <div id="packet-2" class="data-packet">16</div>
+                        <div id="packet-wb" class="data-packet">40</div>
+                    </div>
+                </div>
+
+                <!-- Simulation Control Panel -->
+                <div class="sim-steps-card">
+                    <h2>สถานะจำลอง (Stage)</h2>
+                    <div class="step-desc" id="sim-step-text">
+                        กดปุ่ม "เริ่มการทำงาน" หรือ "รันทีละสเต็ป" ด้านล่าง เพื่อศึกษาการประมวลผลรีจิสเตอร์ทีละลำดับ
+                    </div>
+
+                    <div class="control-panel">
+                        <button class="btn btn-primary" id="btn-play" onclick="startSimulation()">เริ่มทำงาน</button>
+                        <button class="btn" id="btn-step" onclick="stepSimulation()">ทำทีละสเต็ป</button>
+                        <button class="btn" id="btn-reset" onclick="resetSimulation()" disabled>รีเซ็ต</button>
+                    </div>
+
+                    <div style="margin-top: 15px;">
+                        <h4 style="margin-bottom:8px; font-size:14px;">ตั้งค่าตัวเลขนำเข้าจำลอง:</h4>
+                        <div style="display:flex; gap:10px;">
+                            <label style="font-size:12px; color:var(--text-secondary);">R2: 
+                                <input type="number" id="input-r2" value="24" style="width:60px; background:var(--bg-secondary); border:1px solid var(--border-color); color:white; padding:4px; border-radius:4px;">
+                            </label>
+                            <label style="font-size:12px; color:var(--text-secondary);">R3: 
+                                <input type="number" id="input-r3" value="16" style="width:60px; background:var(--bg-secondary); border:1px solid var(--border-color); color:white; padding:4px; border-radius:4px;">
+                            </label>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <script>
+        // Database
+        const x86RegisterData = [
+            { name: "RAX", size: "64-bit", role: "Accumulator", desc: "รีจิสเตอร์หลักสำหรับการคำนวณทางคณิตศาสตร์, เก็บคูณ/หาร และใช้เป็นตัวคืนค่าผลลัพธ์จากฟังก์ชัน (Return Value)", sub: "EAX (32-bit), AX (16-bit), AH/AL (8-bit)" },
+            { name: "RBX", size: "64-bit", role: "Base", desc: "ใช้ระบุแอดเดรสแอดเดรสอ้างอิงฐาน (Base Address) สำหรับหน่วยความจำในอดีต ปัจจุบันเป็นรีจิสเตอร์ใช้งานทั่วไป", sub: "EBX (32-bit), BX (16-bit), BH/BL (8-bit)" },
+            { name: "RCX", size: "64-bit", role: "Counter", desc: "รีจิสเตอร์นับรอบในการทำงานของลูป (Loop counter) และใช้กำหนดระยะการเลื่อนของบิต", sub: "ECX (32-bit), CX (16-bit), CH/CL (8-bit)" },
+            { name: "RDX", size: "64-bit", role: "Data", desc: "ทำงานคู่กับ RAX ในคำสั่งคูณหรือหารที่มีเลขจำนวนมาก และใช้ระบุตำแหน่ง I/O Ports", sub: "EDX (32-bit), DX (16-bit), DH/DL (8-bit)" },
+            { name: "RSI", size: "64-bit", role: "Source Index", desc: "ชี้หน่วยความจำต้นทางในการย้ายข้อมูลแบบชุด (String Copy/Memory manipulation)", sub: "ESI (32-bit), SI (16-bit), SIL (8-bit)" },
+            { name: "RDI", size: "64-bit", role: "Destination Index", desc: "ชี้หน่วยความจำปลายทางในการย้ายข้อมูลแบบชุด หรือใช้ส่งพารามิเตอร์ตัวที่ 1 ใน Linux 64-bit", sub: "EDI (32-bit), DI (16-bit), DIL (8-bit)" },
+            { name: "RSP", size: "64-bit", role: "Stack Pointer", desc: "ชี้แอดเดรสบนสุดของ Stack (Top of Stack) ห้ามยุ่งเกี่ยวโดยตรงเว้นแต่รัน PUSH/POP", sub: "ESP (32-bit), SP (16-bit), SPL (8-bit)" },
+            { name: "RBP", size: "64-bit", role: "Base Pointer", desc: "ชี้แอดเดรสฐานของ Stack Frame ใช้ชี้ตัวแปรโลคอลและพารามิเตอร์ที่เข้ามาในฟังก์ชัน", sub: "EBP (32-bit), BP (16-bit), BPL (8-bit)" },
+            { name: "R8 - R15", size: "64-bit", role: "General Extension", desc: "รีจิสเตอร์ใช้งานทั่วไปเพิ่มเข้ามาในสถาปัตยกรรม 64 บิตเพื่อลดการใช้หน่วยความจำแรม", sub: "R8D-R15D (32-bit), R8W-R15W (16-bit), R8B-R15B (8-bit)" }
+        ];
+
+        const arm64RegisterData = [
+            { name: "X0 - X7", size: "64-bit", role: "Arguments / Return Values", desc: "ใช้ส่งพารามิเตอร์ 8 ตัวแรกผ่านรีจิสเตอร์ไปยังฟังก์ชัน และ X0-X1 ใช้เก็บค่าผลลัพธ์ผลงานขากลับ (Return values) จากฟังก์ชันด้วย", sub: "W0 - W7 (32-bit)" },
+            { name: "X8", size: "64-bit", role: "Indirect Result", desc: "ใช้เก็บชี้แอดเดรสปลายทางที่จำเป็นสำหรับการคืนข้อมูลที่มีขนาดใหญ่มาก เช่น โครงสร้างข้อมูล (Struct)", sub: "W8 (32-bit)" },
+            { name: "X9 - X15", size: "64-bit", role: "Temporary Registers", desc: "รีจิสเตอร์สำหรับงานชั่วคราวทั่วไป ฟังก์ชันสามารถเขียนค่าลงไปใหม่ได้โดยไม่ต้องเก็บรักษาค่าเก่า (Caller-saved)", sub: "W9 - W15 (32-bit)" },
+            { name: "X16 - X17", size: "64-bit", role: "Intra-Procedure-Call", desc: "รีจิสเตอร์ชั่วคราวระดับระบบ มักถูกจองไว้รันในตัวแปลความเชื่อมต่อ (Dynamic Linker / Dynamic Binder)", sub: "W16 - W17 (32-bit)" },
+            { name: "X18", size: "64-bit", role: "Platform Register", desc: "สงวนไว้ระดับปฏิบัติการ (OS Platform) บน macOS และ iOS ห้ามแอปพลิเคชันใช้งานโดยตรง", sub: "W18 (32-bit)" },
+            { name: "X19 - X28", size: "64-bit", role: "Callee-saved Registers", desc: "รีจิสเตอร์สำหรับงานใช้งานทั่วไปที่ฟังก์ชันต้องรักษาค่าเดิมไว้ หากต้องการนำไปใช้ ต้องทำการ Push ลง Stack ก่อน และดึงกลับเมื่อฟังก์ชันรันเสร็จ", sub: "W19 - W28 (32-bit)" },
+            { name: "X29", size: "64-bit", role: "Frame Pointer (FP)", desc: "ชี้หน่วยความจำส่วนเฟรมฐานของ Stack Frame ปัจจุบันเพื่อช่วยแกะรอยประวัติของโปรแกรม", sub: "W29 (32-bit)" },
+            { name: "X30", size: "64-bit", role: "Link Register (LR)", desc: "ใช้ชี้เก็บตำแหน่งแอดเดรสสำหรับกระโดดกลับเมื่อรันฟังก์ชันเสร็จ (ทำงานร่วมกับคำสั่ง Branch with Link `BL` และ Return `RET`)", sub: "ไม่มีโหมด 32 บิต" },
+            { name: "XZR / WZR", size: "64-bit / 32-bit", role: "Zero Register", desc: "รีจิสเตอร์ศูนย์ถาวรทางฮาร์ดแวร์ เมื่อเรียกอ่านจะได้เลข 0 เสมอ และเมื่อเขียนข้อมูลใส่ไป ค่าจะถูกละทิ้งทันที", sub: "แชร์พื้นที่ฮาร์ดแวร์" }
+        ];
+
+        // Initialize UI cards
+        function buildRegisterCards() {
+            const x86Grid = document.getElementById('x86-cards');
+            x86Grid.innerHTML = x86RegisterData.map(reg => `
+                <div class="reg-card" onclick="selectRegisterForComparison('${reg.name}', 'x86')">
+                    <div class="reg-card-header">
+                        <span class="reg-card-name">${reg.name}</span>
+                        <span class="reg-card-size">${reg.size}</span>
+                    </div>
+                    <div style="font-size:12px; color:var(--accent-primary); font-weight:600;">${reg.role}</div>
+                    <div class="reg-card-desc">${reg.desc}</div>
+                    <div style="font-size:11px; color:var(--text-muted); font-family:monospace; margin-top:5px;">ย่อย: ${reg.sub}</div>
+                </div>
+            `).join('');
+
+            const armGrid = document.getElementById('arm64-cards');
+            armGrid.innerHTML = arm64RegisterData.map(reg => `
+                <div class="reg-card" onclick="selectRegisterForComparison('${reg.name}', 'arm')">
+                    <div class="reg-card-header">
+                        <span class="reg-card-name">${reg.name}</span>
+                        <span class="reg-card-size">${reg.size}</span>
+                    </div>
+                    <div style="font-size:12px; color:var(--accent-primary); font-weight:600;">${reg.role}</div>
+                    <div class="reg-card-desc">${reg.desc}</div>
+                    <div style="font-size:11px; color:var(--text-muted); font-family:monospace; margin-top:5px;">ย่อย: ${reg.sub}</div>
+                </div>
+            `).join('');
+
+            // Build selects for Comparison Builder
+            const x86Select = document.getElementById('x86-select');
+            x86RegisterData.forEach(reg => {
+                const opt = document.createElement('option');
+                opt.value = reg.name;
+                opt.textContent = `${reg.name} (${reg.role})`;
+                x86Select.appendChild(opt);
+            });
+
+            const armSelect = document.getElementById('arm-select');
+            arm64RegisterData.forEach(reg => {
+                const opt = document.createElement('option');
+                opt.value = reg.name;
+                opt.textContent = `${reg.name} (${reg.role})`;
+                armSelect.appendChild(opt);
+            });
+        }
+
+        // Search Engine
+        function handleSearch() {
+            const query = document.getElementById('search-bar').value.toLowerCase().trim();
+            const resultsPage = document.getElementById('search-results-page');
+            const pages = document.querySelectorAll('.page');
+            const sidebarItems = document.querySelectorAll('.menu-item');
+
+            if (query === '') {
+                resultsPage.style.display = 'none';
+                // Restore active page
+                const activeSidebar = document.querySelector('.menu-item.active');
+                if (activeSidebar) activeSidebar.click();
+                return;
+            }
+
+            // Hide all pages
+            pages.forEach(p => p.classList.remove('active'));
+            sidebarItems.forEach(item => item.classList.remove('active'));
+            resultsPage.style.display = 'block';
+
+            const matchedX86 = x86RegisterData.filter(reg => 
+                reg.name.toLowerCase().includes(query) || 
+                reg.role.toLowerCase().includes(query) || 
+                reg.desc.toLowerCase().includes(query)
+            ).map(reg => ({...reg, arch: 'x86-64'}));
+
+            const matchedARM = arm64RegisterData.filter(reg => 
+                reg.name.toLowerCase().includes(query) || 
+                reg.role.toLowerCase().includes(query) || 
+                reg.desc.toLowerCase().includes(query)
+            ).map(reg => ({...reg, arch: 'ARM64'}));
+
+            const allMatches = [...matchedX86, ...matchedARM];
+            const listEl = document.getElementById('search-results-list');
+
+            if (allMatches.length === 0) {
+                listEl.innerHTML = `<div style="grid-column: span 3; text-align:center; padding: 40px; color: var(--text-muted);">ไม่พบข้อมูลรีจิสเตอร์หรือคำสำคัญที่เกี่ยวข้อง...</div>`;
+                return;
+            }
+
+            listEl.innerHTML = allMatches.map(reg => `
+                <div class="reg-card" onclick="selectRegisterForComparison('${reg.name}', '${reg.arch === 'x86-64' ? 'x86' : 'arm'}')">
+                    <div class="reg-card-header">
+                        <span class="reg-card-name">${reg.name}</span>
+                        <span class="reg-card-size">${reg.size}</span>
+                    </div>
+                    <div>
+                        <span class="tag-pill" style="background-color: var(--accent-primary); color:white; font-weight:bold;">${reg.arch}</span>
+                        <span class="tag-pill">${reg.role}</span>
+                    </div>
+                    <div class="reg-card-desc">${reg.desc}</div>
+                </div>
+            `).join('');
+        }
+
+        // Navigation
+        function switchPage(pageId, menuItem) {
+            // Clear search bar
+            document.getElementById('search-bar').value = '';
+            document.getElementById('search-results-page').style.display = 'none';
+
+            const pages = document.querySelectorAll('.page');
+            pages.forEach(page => page.classList.remove('active'));
+
+            const items = document.querySelectorAll('.menu-item');
+            items.forEach(item => item.classList.remove('active'));
+
+            document.getElementById(pageId).classList.add('active');
+            if (menuItem) {
+                menuItem.classList.add('active');
+                const group = menuItem.closest('.menu-group');
+                if (group && !group.classList.contains('expanded')) {
+                    group.classList.add('expanded');
+                }
+            }
+        }
+
+        function toggleGroup(headerEl) {
+            const group = headerEl.closest('.menu-group');
+            group.classList.toggle('expanded');
+        }
+
+        // Toggle Theme
+        function toggleTheme() {
+            const html = document.documentElement;
+            const sunIcon = document.getElementById('sun-icon');
+            const moonIcon = document.getElementById('moon-icon');
+
+            if (html.classList.contains('dark')) {
+                html.classList.remove('dark');
+                html.classList.add('light-mode');
+                sunIcon.style.display = 'none';
+                moonIcon.style.display = 'block';
+            } else {
+                html.classList.remove('light-mode');
+                html.classList.add('dark');
+                sunIcon.style.display = 'block';
+                moonIcon.style.display = 'none';
+            }
+        }
+
+        // Comparison Builder
+        function selectRegisterForComparison(name, type) {
+            // Redirect to comparison page
+            const comparisonMenu = document.querySelector('.menu-item[onclick*="comparison-page"]');
+            switchPage('comparison-page', comparisonMenu);
+            
+            if (type === 'x86') {
+                document.getElementById('x86-select').value = name;
+            } else {
+                document.getElementById('arm-select').value = name;
+            }
+            compareRegisters();
+        }
+
+        function compareRegisters() {
+            const x86Val = document.getElementById('x86-select').value;
+            const armVal = document.getElementById('arm-select').value;
+            const resultBox = document.getElementById('compare-result');
+
+            if (!x86Val && !armVal) {
+                resultBox.style.display = 'none';
+                return;
+            }
+
+            resultBox.style.display = 'block';
+
+            const x86Card = document.getElementById('x86-comp-card');
+            const armCard = document.getElementById('arm-comp-card');
+
+            if (x86Val) {
+                const reg = x86RegisterData.find(r => r.name === x86Val);
+                x86Card.innerHTML = `
+                    <h4><span>${reg.name}</span> <span class="highlight-badge">${reg.size}</span></h4>
+                    <p style="font-weight:600; color:var(--accent-primary); font-size:13px;">บทบาท: ${reg.role}</p>
+                    <p style="font-size:13.5px; margin-top:8px;">${reg.desc}</p>
+                    <p style="font-size:12px; color:var(--text-muted); font-family:monospace;">หน่วยย่อย: ${reg.sub}</p>
+                `;
+                x86Card.style.opacity = '1';
+            } else {
+                x86Card.innerHTML = `<div style="color:var(--text-muted); text-align:center; padding: 20px;">ไม่ได้เลือกรีจิสเตอร์ x86</div>`;
+            }
+
+            if (armVal) {
+                const reg = arm64RegisterData.find(r => r.name === armVal);
+                armCard.innerHTML = `
+                    <h4><span>${reg.name}</span> <span class="highlight-badge">${reg.size}</span></h4>
+                    <p style="font-weight:600; color:var(--accent-primary); font-size:13px;">บทบาท: ${reg.role}</p>
+                    <p style="font-size:13.5px; margin-top:8px;">${reg.desc}</p>
+                    <p style="font-size:12px; color:var(--text-muted); font-family:monospace;">หน่วยย่อย: ${reg.sub}</p>
+                `;
+                armCard.style.opacity = '1';
+            } else {
+                armCard.innerHTML = `<div style="color:var(--text-muted); text-align:center; padding: 20px;">ไม่ได้เลือกรีจิสเตอร์ ARM64</div>`;
+            }
+        }
+
+        // ==========================================
+        // xchg Demo Animation Logic
+        // ==========================================
+        function runXchgDemo() {
+            const valEax = document.getElementById('xchg-input-eax').value;
+            const valEbx = document.getElementById('xchg-input-ebx').value;
+
+            const boxEax = document.getElementById('box-eax');
+            const boxEbx = document.getElementById('box-ebx');
+            const textEax = document.getElementById('val-eax');
+            const textEbx = document.getElementById('val-ebx');
+
+            const latchEax = document.getElementById('latch-eax');
+            const latchEbx = document.getElementById('latch-ebx');
+
+            const pathEaxLatch = document.getElementById('path-eax-latch');
+            const pathEbxLatch = document.getElementById('path-ebx-latch');
+            const pathCrossA = document.getElementById('path-cross-a');
+            const pathCrossB = document.getElementById('path-cross-b');
+
+            const desc = document.getElementById('xchg-step-desc');
+
+            // Reset States
+            boxEax.classList.remove('active');
+            boxEbx.classList.remove('active');
+            latchEax.classList.remove('active');
+            latchEbx.classList.remove('active');
+            pathEaxLatch.classList.remove('active');
+            pathEbxLatch.classList.remove('active');
+            pathCrossA.classList.remove('active');
+            pathCrossB.classList.remove('active');
+
+            // Step 1: Read Values to Buffer
+            desc.innerHTML = `<strong>สเต็ป 1 (Read/Latch):</strong> สัญญาณไฟวิ่งผ่านบัสอ่าน เปิดประตูดึงค่าของ EAX (${valEax}) และ EBX (${valEbx}) มาเก็บบัฟเฟอร์ที่พักข้อมูลชั่วคราว (Buffer A & B) เพื่อเตรียมสลับค่า`;
+            boxEax.classList.add('active');
+            boxEbx.classList.add('active');
+            pathEaxLatch.classList.add('active');
+            pathEbxLatch.classList.add('active');
+
+            setTimeout(() => {
+                latchEax.textContent = `Buffer A: ${valEax}`;
+                latchEbx.textContent = `Buffer B: ${valEbx}`;
+                latchEax.classList.add('active');
+                latchEbx.classList.add('active');
+            }, 1000);
+
+            // Step 2: Cross and Write Back
+            setTimeout(() => {
+                desc.innerHTML = `<strong>สเต็ป 2 (Cross-Routing & Write-Back):</strong> สายไฟบัสข้อมูลภายในสลับไขว้พิกัด (Cross-Routing) นำกระแสข้อมูลจาก Buffer A ไปหาพิกัดเขียนกลับของ EBX และนำกระแสข้อมูล Buffer B ไปเขียนที่ EAX พร้อมกัน`;
+                pathCrossA.classList.add('active');
+                pathCrossB.classList.add('active');
+            }, 2500);
+
+            // Step 3: Complete
+            setTimeout(() => {
+                textEax.textContent = valEbx;
+                textEbx.textContent = valEax;
+                
+                // Swap input fields values to allow repeating
+                document.getElementById('xchg-input-eax').value = valEbx;
+                document.getElementById('xchg-input-ebx').value = valEax;
+
+                desc.innerHTML = `<strong>คำสั่งรันสำเร็จ!</strong> รีจิสเตอร์ EAX ตอนนี้เปลี่ยนเป็นค่า ${valEbx} และ EBX เปลี่ยนเป็นค่า ${valEax} โดยใช้สายไฟข้ามสัญญาณ (Dual-write ports) คำนวณจบภายในสัญญาณนาฬิกาเดียว`;
+            }, 4000);
+        }
+
+        // ==========================================
+        // Sample Program Simulator Logic
+        // ==========================================
+        let progStep = 0;
+        let inputA = 20;
+        let inputB = 5;
+        
+        const progStepsDetails = [
+            {
+                line: 1,
+                pc: "0000",
+                mar: "0000",
+                mbr: "CALL_READINT",
+                ir: "call ReadInt",
+                desc: "<strong>ดึงแอดเดรสแรกเริ่ม:</strong> ตำแหน่งแอดเดรสแรกเริ่มจาก PC (0000) ถูกส่งเข้า MAR สั่งแรมอ่านค่าได้คำสั่ง ReadInt พักที่ MBR และย้ายลง IR<br><strong>ทำงาน:</strong> โปรแกรมหยุดรอผู้ใช้ป้อนอินพุตค่าแรก (A) จากคีย์บอร์ด (ตัวเลขป้อนทางขวามือคือ <span class='val-a'>20</span>)",
+                eax: "A", // dynamic
+                ebx: "?",
+                signals: ["sig-regwrite", "sig-ioread"],
+                alu: "Pass-through",
+                highlightFlow: ["flow-pc", "arrow-pc-mar", "flow-mar", "arrow-mar-ram", "flow-ram", "arrow-ram-mbr", "flow-mbr", "arrow-mbr-ir", "flow-ir"]
+            },
+            {
+                line: 2,
+                pc: "0004",
+                mar: "0004",
+                mbr: "MOV_EBX_EAX",
+                ir: "mov ebx, eax",
+                desc: "<strong>ถอดรหัสคำสั่งคัดลอก:</strong> ค่าข้อมูลที่เก็บอยู่ใน EAX (<span class='val-a'>20</span>) ถูกอ่านออกมาผ่าน Data path วิ่งผ่าน ALU โดยไม่คิดเลขใด ๆ (Pass-through) และป้อนนำกระแสไฟกลับไปเขียนทับลงรีจิสเตอร์ปลายทาง <strong>EBX</strong>",
+                eax: "A",
+                ebx: "A",
+                signals: ["sig-regread", "sig-regwrite"],
+                alu: "Pass-through (Bypass)",
+                highlightFlow: ["flow-ir"]
+            },
+            {
+                line: 3,
+                pc: "0008",
+                mar: "0008",
+                mbr: "CALL_READINT",
+                ir: "call ReadInt",
+                desc: "<strong>เรียกรับอินพุตตัวที่สอง:</strong> PC ขยับมา 0008 ทำการส่งสัญญาณดึงรหัสคำสั่งเหมือนเดิม<br><strong>ทำงาน:</strong> ดึงรับค่าตัวเลขที่สอง (B) ป้อนเข้ามา (<span class='val-b'>5</span>) และบันทึกลงไปเขียนทับแอดเดรสของ <strong>EAX</strong> ทันที",
+                eax: "B",
+                ebx: "A",
+                signals: ["sig-regwrite", "sig-ioread"],
+                alu: "Pass-through",
+                highlightFlow: ["flow-ir"]
+            },
+            {
+                line: 4,
+                pc: "000C",
+                mar: "000C",
+                mbr: "XCHG_EAX_EBX",
+                ir: "xchg eax, ebx",
+                desc: "<strong>ประมวลผลคำสั่งแลกเปลี่ยน:</strong> CPU สั่งเปิดพอร์ตอ่าน EAX (<span class='val-b'>5</span>) และ EBX (<span class='val-a'>20</span>) พร้อมกัน ค่าถูกพักชั่วคราวที่วงจร Buffer จากนั้นตัวนำสัญญาณไขว้ทางเดินและส่งบันทึกค่ากลับ โดยสลับเป้าหมายทำให้ EAX ได้ค่าตัวตั้งเดิม และ EBX ได้ค่าตัวลบ",
+                eax: "A",
+                ebx: "B",
+                signals: ["sig-regread", "sig-regwrite"],
+                alu: "Cross-routing",
+                highlightFlow: ["flow-ir"]
+            },
+            {
+                line: 5,
+                pc: "0010",
+                mar: "0010",
+                mbr: "SUB_EAX_EBX",
+                ir: "sub eax, ebx",
+                desc: "<strong>คำนวณวงจรลบ:</strong> ค่าใน EAX (<span class='val-a'>20</span>) และ EBX (<span class='val-b'>5</span>) ถูกส่งเป็นอินพุตเข้า <strong>ALU</strong> โดย Control Unit สั่งเปลี่ยนชุดคำสั่งทางคณิตศาสตร์เป็นลบ ผลคำนวณได้ <span class='val-total'>15</span> และเขียนผลรวมกลับลงไปที่ **EAX**",
+                eax: "Total",
+                ebx: "B",
+                signals: ["sig-regread", "sig-regwrite"],
+                alu: "ALU Control: SUB",
+                highlightFlow: ["flow-ir"]
+            },
+            {
+                line: 6,
+                pc: "0014",
+                mar: "0014",
+                mbr: "CALL_WRITEINT",
+                ir: "call WriteInt",
+                desc: "<strong>พิมพ์ผลลัพธ์:</strong> CPU อ่านค่าใน EAX (<span class='val-total'>15</span>) และส่งสัญญาณกระแสไฟฟ้าออกนอกชิปประมวลผลวิ่งตามสายบัสพอร์ตเอาต์พุตไปหาหน้าจอภาพคอมพิวเตอร์ เพื่อแสดงค่าผลลัพธ์เป็นอักขระข้อความ",
+                eax: "Total",
+                ebx: "B",
+                signals: ["sig-regread", "sig-iowrite"],
+                alu: "Pass-through",
+                highlightFlow: ["flow-ir"]
+            }
+        ];
+
+        function resetProgram() {
+            progStep = 0;
+            document.getElementById('btn-prog-step').disabled = false;
+            
+            // Clear highlights
+            document.querySelectorAll('.assembly-line').forEach(el => el.classList.remove('active'));
+            document.querySelectorAll('.flow-node, .flow-arrow').forEach(el => el.classList.remove('highlight'));
+            document.querySelectorAll('.signal-indicator').forEach(el => el.classList.remove('active'));
+            
+            // Clear CPU stats
+            document.getElementById('prog-reg-eax').textContent = "?";
+            document.getElementById('prog-reg-ebx').textContent = "?";
+            document.getElementById('prog-reg-pc').textContent = "0000";
+            document.getElementById('prog-reg-mar').textContent = "0000";
+            document.getElementById('prog-reg-mbr').textContent = "0000";
+            document.getElementById('prog-reg-ir').textContent = "None";
+            document.getElementById('sig-alu-op').textContent = "ALU Control: Idle";
+            
+            document.getElementById('prog-step-desc').innerHTML = "กรอกตัวเลขอินพุต A และ B ทางด้านขวา จากนั้นกดปุ่ม \"รันคำสั่งถัดไป\" เพื่อเริ่มทดสอบแบบทีละคำสั่ง";
+        }
+
+        function stepProgram() {
+            inputA = parseInt(document.getElementById('prog-input-a').value) || 20;
+            inputB = parseInt(document.getElementById('prog-input-b').value) || 5;
+            const total = inputA - inputB;
+
+            if (progStep >= progStepsDetails.length) {
+                document.getElementById('prog-step-desc').innerHTML = `<strong>โปรแกรมจบการทำงาน!</strong><br>ผลต่างรวมของสองตัวคือ ${total} (คำนวณจาก ${inputA} - ${inputB})`;
+                document.getElementById('btn-prog-step').disabled = true;
+                return;
+            }
+
+            const step = progStepsDetails[progStep];
+            
+            // Highlight Code Line
+            document.querySelectorAll('.assembly-line').forEach(el => el.classList.remove('active'));
+            document.getElementById(`prog-line-${step.line}`).classList.add('active');
+
+            // Highlight Datapath Nodes
+            document.querySelectorAll('.flow-node, .flow-arrow').forEach(el => el.classList.remove('highlight'));
+            step.highlightFlow.forEach(id => {
+                const el = document.getElementById(id);
+                if (el) el.classList.add('highlight');
+            });
+
+            // Update Register Values dynamically based on inputs
+            let eaxVal = "?";
+            let ebxVal = "?";
+
+            if (step.eax === "A") eaxVal = inputA;
+            else if (step.eax === "B") eaxVal = inputB;
+            else if (step.eax === "Total") eaxVal = total;
+
+            if (step.ebx === "A") ebxVal = inputA;
+            else if (step.ebx === "B") ebxVal = inputB;
+            else if (step.ebx === "Total") ebxVal = total;
+
+            document.getElementById('prog-reg-eax').textContent = eaxVal;
+            document.getElementById('prog-reg-ebx').textContent = ebxVal;
+            document.getElementById('prog-reg-pc').textContent = step.pc;
+            document.getElementById('prog-reg-mar').textContent = step.mar;
+            document.getElementById('prog-reg-mbr').textContent = step.mbr;
+            document.getElementById('prog-reg-ir').textContent = step.ir;
+
+            // Description HTML binding
+            let desc = step.desc
+                .replace("<span class='val-a'>20</span>", `<span class="highlight-badge">${inputA}</span>`)
+                .replace("<span class='val-b'>5</span>", `<span class="highlight-badge">${inputB}</span>`)
+                .replace("<span class='val-total'>15</span>", `<span class="highlight-badge">${total}</span>`);
+            
+            document.getElementById('prog-step-desc').innerHTML = `<h4>คำสั่งที่ ${step.line}: ${step.ir}</h4><p style="margin-top:8px;">${desc}</p>`;
+
+            // Update Control Signals Indicator
+            document.querySelectorAll('.signal-indicator').forEach(el => el.classList.remove('active'));
+            step.signals.forEach(id => {
+                const el = document.getElementById(id);
+                if (el) el.classList.add('active');
+            });
+
+            document.getElementById('sig-alu-op').textContent = step.alu;
+
+            progStep++;
+        }
+
+        // ==========================================
+        // Register Cycle Simulator Logic (OLD ADD)
+        // ==========================================
+        let simStep = 0;
+        let simTimer = null;
+        const simStepsData = [
+            {
+                title: "สเต็ป 1: Instruction Fetch (ดึงคำสั่ง)",
+                desc: "คำสั่งที่จะทำคือ <strong>ADD R1, R2, R3</strong> ถูกดึงมาจากแอดเดรสหน่วยความจำเข้ามาเก็บในรีจิสเตอร์เก็บคำสั่ง <strong>Instruction Register (IR)</strong>",
+                activeNodes: ["node-instruction"],
+                activeBuses: ["path-ctrl-ir"],
+                animate: null
+            },
+            {
+                title: "สเต็ป 2: Instruction Decode (ถอดรหัสคำสั่ง)",
+                desc: "หน่วยควบคุม (Control Unit) แปลคำสั่ง และสั่งการเปิดประตูกระแสไฟฟ้าของรีจิสเตอร์ต้นทาง <strong>R2</strong> และ <strong>R3</strong> เพื่อใช้อ่านข้อมูล",
+                activeNodes: ["node-control", "node-registers"],
+                activeBuses: ["path-ctrl-ir"],
+                animate: null
+            },
+            {
+                title: "สเต็ป 3: Execute (คำนวณ)",
+                desc: "ค่าข้อมูลใน <strong>R2 (<span class='val2'>24</span>)</strong> และ <strong>R3 (<span class='val3'>16</span>)</strong> ถูกส่งผ่าน Bus สัญญาณวิ่งเข้ามาหา <strong>ALU (วงจรบวก)</strong> เพื่อคำนวณทางฟิสิกส์",
+                activeNodes: ["node-alu"],
+                activeBuses: ["path-reg-alu1", "path-reg-alu2"],
+                animate: "execute"
+            },
+            {
+                title: "สเต็ป 4: Write-back (เขียนกลับ)",
+                desc: "ผลการคำนวณที่ได้จาก ALU คือ <strong><span class='val-wb'>40</span></strong> ถูกส่งวิ่งผ่านบัสเขียนกลับ (Write-back bus) เพื่อบันทึกค่าลงในรีจิสเตอร์ปลายทาง <strong>R1</strong>",
+                activeNodes: ["node-registers"],
+                activeBuses: ["path-alu-wb"],
+                animate: "writeback"
+            }
+        ];
+
+        function updateInputs() {
+            const v2 = parseInt(document.getElementById('input-r2').value) || 0;
+            const v3 = parseInt(document.getElementById('input-r3').value) || 0;
+            document.getElementById('sim-reg-r2').textContent = v2;
+            document.getElementById('sim-reg-r3').textContent = v3;
+        }
+
+        function startSimulation() {
+            resetSimulation();
+            document.getElementById('btn-play').disabled = true;
+            document.getElementById('btn-step').disabled = true;
+            document.getElementById('btn-reset').disabled = false;
+            
+            simTimer = setInterval(() => {
+                if (simStep < simStepsData.length) {
+                    executeStep(simStep);
+                    simStep++;
+                } else {
+                    clearInterval(simTimer);
+                    document.getElementById('sim-step-text').innerHTML = `<strong>ประมวลผลคำสั่งสำเร็จ!</strong><br>ค่า R1 ปัจจุบันถูกอัปเดตเป็นผลรวมในหน้าต่าง Register File เรียบร้อย`;
+                    document.getElementById('btn-reset').disabled = false;
+                }
+            }, 3000);
+        }
+
+        function stepSimulation() {
+            document.getElementById('btn-reset').disabled = false;
+            if (simStep < simStepsData.length) {
+                executeStep(simStep);
+                simStep++;
+            } else {
+                document.getElementById('sim-step-text').innerHTML = `<strong>ประมวลผลคำสั่งสำเร็จ!</strong><br>รันจบสเต็ปเรียบร้อย`;
+                document.getElementById('btn-step').disabled = true;
+            }
+        }
+
+        function executeStep(stepIndex) {
+            updateInputs();
+            const step = simStepsData[stepIndex];
+            const v2 = parseInt(document.getElementById('sim-reg-r2').textContent);
+            const v3 = parseInt(document.getElementById('sim-reg-r3').textContent);
+            const total = v2 + v3;
+
+            // Update text
+            let desc = step.desc
+                .replace("class='val2'", "")
+                .replace("class='val3'", "")
+                .replace("class='val-wb'", "");
+            
+            // Inject values
+            desc = desc.replace("24", v2).replace("16", v3).replace("40", total);
+            
+            document.getElementById('sim-step-text').innerHTML = `<h4>${step.title}</h4><p style="margin-top:10px;">${desc}</p>`;
+
+            // Deactivate all nodes and buses
+            document.querySelectorAll('.diagram-node').forEach(node => node.classList.remove('active'));
+            document.querySelectorAll('.bus-line').forEach(line => line.classList.remove('active'));
+            
+            // Hide data packets
+            const p1 = document.getElementById('packet-1');
+            const p2 = document.getElementById('packet-2');
+            const pwb = document.getElementById('packet-wb');
+            p1.style.opacity = '0';
+            p1.className = 'data-packet';
+            p2.style.opacity = '0';
+            p2.className = 'data-packet';
+            pwb.style.opacity = '0';
+            pwb.className = 'data-packet';
+
+            // Activate specific nodes and buses
+            step.activeNodes.forEach(id => document.getElementById(id).classList.add('active'));
+            step.activeBuses.forEach(id => document.getElementById(id).classList.add('active'));
+
+            // Run custom animations
+            if (step.animate === "execute") {
+                p1.textContent = v2;
+                p2.textContent = v3;
+                p1.classList.add('packet-animation-1');
+                p2.classList.add('packet-animation-2');
+                document.getElementById('alu-expr').textContent = `${v2} + ${v3}`;
+            } else if (step.animate === "writeback") {
+                pwb.textContent = total;
+                pwb.classList.add('packet-animation-writeback');
+                document.getElementById('sim-reg-r1').textContent = total;
+                document.getElementById('alu-expr').textContent = `ผลลัพธ์ = ${total}`;
+            } else {
+                document.getElementById('alu-expr').textContent = `รอนำเข้าข้อมูล...`;
+            }
+        }
+
+        function resetSimulation() {
+            clearInterval(simTimer);
+            simStep = 0;
+            
+            // Reset text
+            document.getElementById('sim-step-text').innerHTML = "กดปุ่ม \"เริ่มการทำงาน\" หรือ \"รันทีละสเต็ป\" ด้านล่างเพื่อเริ่มจำลองสถานการณ์";
+            
+            // Deactivate nodes and buses
+            document.querySelectorAll('.diagram-node').forEach(node => node.classList.remove('active'));
+            document.querySelectorAll('.bus-line').forEach(line => line.classList.remove('active'));
+            
+            // Reset value of R1
+            document.getElementById('sim-reg-r1').textContent = 0;
+            document.getElementById('alu-expr').textContent = `รอนำเข้าข้อมูล...`;
+
+            // Stop animations
+            const p1 = document.getElementById('packet-1');
+            const p2 = document.getElementById('packet-2');
+            const pwb = document.getElementById('packet-wb');
+            p1.className = 'data-packet';
+            p2.className = 'data-packet';
+            pwb.className = 'data-packet';
+            p1.style.opacity = '0';
+            p2.style.opacity = '0';
+            pwb.style.opacity = '0';
+
+            // Enable buttons
+            document.getElementById('btn-play').disabled = false;
+            document.getElementById('btn-step').disabled = false;
+            document.getElementById('btn-reset').disabled = true;
+        }
+
+        // Page load initialization
+        window.onload = () => {
+            buildRegisterCards();
+            updateInputs();
+            resetProgram();
+        }
+    </script>
+</body>
+</html>
